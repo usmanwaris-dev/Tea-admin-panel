@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MessageSquare, Eye, Flag, Heart, Coffee, Repeat2 } from "lucide-react";
+import { MessageCircle, Eye, Flag, CheckCircle2, Coffee, Repeat2 } from "lucide-react";
 import type { AdminPost } from "@/lib/types";
 import { AliasCell } from "@/components/badges";
 import { Badge } from "@/components/ui/badge";
@@ -122,10 +122,10 @@ export function PostView({ post, full = true }: { post: AdminPost; full?: boolea
       {post.poll && <PollView poll={post.poll} />}
 
       <div className="flex flex-wrap items-center gap-4 border-t border-border pt-3">
-        <StatChip icon={Flag} value={post.stats.red_flag_count} label="red flags" color={TEA.redFlag} />
-        <StatChip icon={Heart} value={post.stats.green_flag_count} label="green flags" color={TEA.greenFlag} />
-        <StatChip icon={Coffee} value={post.stats.sip_count} label="sips" color={TEA.sip} />
-        <StatChip icon={MessageSquare} value={post.stats.comment_count} label="comments" />
+        <StatChip icon={Flag} value={post.stats.red_flag_count} label="Red Flag" color={TEA.redFlag} />
+        <StatChip icon={CheckCircle2} value={post.stats.green_flag_count} label="Green Flag" color={TEA.greenFlag} />
+        <StatChip icon={Coffee} value={post.stats.same_count} label="Same" color={TEA.sip} />
+        <StatChip icon={MessageCircle} value={post.stats.comment_count} label="comments" />
         <StatChip icon={Repeat2} value={post.stats.repost_count} label="reposts" />
         <StatChip icon={Eye} value={post.stats.view_count} label="views" />
       </div>

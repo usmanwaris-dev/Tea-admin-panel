@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
-import { FileText, Trash2, Pin, MessageSquare, Flag, Heart, Coffee, ImageIcon, MoreHorizontal } from "lucide-react";
+import { FileText, Trash2, Pin, MessageCircle, Flag, CheckCircle2, Coffee, Repeat2, ImageIcon, MoreHorizontal } from "lucide-react";
 import type { AdminPost } from "@/lib/types";
 import { DataTable } from "@/components/ui/data-table";
 import { Drawer } from "@/components/ui/drawer";
@@ -96,17 +96,21 @@ export function PostsClient({ posts }: { posts: AdminPost[] }) {
                 <Flag className="h-3.5 w-3.5" style={{ color: TEA.redFlag }} />
                 {compactNumber(s.red_flag_count)}
               </span>
-              <span className="flex items-center gap-1" title="Green flags">
-                <Heart className="h-3.5 w-3.5" style={{ color: TEA.greenFlag }} />
+              <span className="flex items-center gap-1" title="Green Flag">
+                <CheckCircle2 className="h-3.5 w-3.5" style={{ color: TEA.greenFlag }} />
                 {compactNumber(s.green_flag_count)}
               </span>
-              <span className="flex items-center gap-1" title="Sips">
+              <span className="flex items-center gap-1" title="Same">
                 <Coffee className="h-3.5 w-3.5" style={{ color: TEA.sip }} />
-                {compactNumber(s.sip_count)}
+                {compactNumber(s.same_count)}
               </span>
               <span className="flex items-center gap-1" title="Comments">
-                <MessageSquare className="h-3.5 w-3.5" />
+                <MessageCircle className="h-3.5 w-3.5" />
                 {compactNumber(s.comment_count)}
+              </span>
+              <span className="hidden items-center gap-1 xl:flex" title="Reposts">
+                <Repeat2 className="h-3.5 w-3.5" />
+                {compactNumber(s.repost_count)}
               </span>
             </div>
           );
