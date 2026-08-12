@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
-import { FileText, Trash2, Pin, PinOff, Droplet, MessageSquare, Flag, ImageIcon, MoreHorizontal } from "lucide-react";
+import { FileText, Trash2, Pin, MessageSquare, Flag, Heart, Coffee, ImageIcon, MoreHorizontal } from "lucide-react";
 import type { AdminPost } from "@/lib/types";
 import { DataTable } from "@/components/ui/data-table";
 import { Drawer } from "@/components/ui/drawer";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { AliasCell } from "@/components/badges";
 import { TopicIcon } from "@/components/topic-icon";
-import { PostView } from "@/components/content/post-view";
+import { PostView, TEA } from "@/components/content/post-view";
 import { PostComments } from "@/components/content/post-comments";
 import { ConfirmAction } from "@/components/confirm-action";
 import { compactNumber, timeAgo, truncate, cn } from "@/lib/utils";
@@ -92,8 +92,16 @@ export function PostsClient({ posts }: { posts: AdminPost[] }) {
           const s = row.original.stats;
           return (
             <div className="flex items-center gap-3 text-sm text-muted-foreground tabular">
+              <span className="flex items-center gap-1" title="Red flags">
+                <Flag className="h-3.5 w-3.5" style={{ color: TEA.redFlag }} />
+                {compactNumber(s.red_flag_count)}
+              </span>
+              <span className="flex items-center gap-1" title="Green flags">
+                <Heart className="h-3.5 w-3.5" style={{ color: TEA.greenFlag }} />
+                {compactNumber(s.green_flag_count)}
+              </span>
               <span className="flex items-center gap-1" title="Sips">
-                <Droplet className="h-3.5 w-3.5 text-accent" />
+                <Coffee className="h-3.5 w-3.5" style={{ color: TEA.sip }} />
                 {compactNumber(s.sip_count)}
               </span>
               <span className="flex items-center gap-1" title="Comments">

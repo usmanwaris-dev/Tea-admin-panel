@@ -186,6 +186,7 @@ export const posts: AdminPost[] = Array.from({ length: 130 }).map((_, i) => {
       red_flag_count: int(0, 300),
       green_flag_count: int(0, 200),
       same_count: int(0, 90),
+      repost_count: int(0, 40),
       view_count: sip * int(4, 12) + int(50, 4000),
     },
     poll: hasPoll

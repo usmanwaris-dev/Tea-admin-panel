@@ -181,7 +181,7 @@ export async function getReports(q: ReportQuery = {}): Promise<Paginated<AdminRe
     .select(
       `*,
        reporter:reporter_id(${authorCols}),
-       post:post_id(id,author_id,topic_id,type,content,media_urls,mood,is_deleted,comments_disabled,view_count,created_at,users:author_id(${authorCols}),topics:topic_id(id,name,icon,color),post_stats(sip_count,comment_count,red_flag_count,green_flag_count,same_count)),
+       post:post_id(id,author_id,topic_id,type,content,media_urls,mood,is_deleted,comments_disabled,view_count,created_at,users:author_id(${authorCols}),topics:topic_id(id,name,icon,color),post_stats(sip_count,comment_count,red_flag_count,green_flag_count,same_count,repost_count)),
        comment:comment_id(id,post_id,author_id,content,upvotes,is_deleted,created_at,users:author_id(${authorCols}))`,
       { count: "exact" }
     )
@@ -223,6 +223,7 @@ export async function getReports(q: ReportQuery = {}): Promise<Paginated<AdminRe
             red_flag_count: r.post.post_stats?.red_flag_count ?? 0,
             green_flag_count: r.post.post_stats?.green_flag_count ?? 0,
             same_count: r.post.post_stats?.same_count ?? 0,
+            repost_count: r.post.post_stats?.repost_count ?? 0,
             view_count: r.post.view_count ?? 0,
           },
           poll: null,
@@ -294,7 +295,7 @@ export async function getPosts(q: PostQuery = {}): Promise<Paginated<AdminPost>>
   let query = supabase
     .from("posts")
     .select(
-      "id, author_id, topic_id, type, content, media_urls, mood, is_deleted, comments_disabled, view_count, created_at, users:author_id(id,alias,avatar_color,avatar_url,is_verified,is_suspended), topics:topic_id(id,name,icon,color), post_stats(sip_count,comment_count,red_flag_count,green_flag_count,same_count)",
+      "id, author_id, topic_id, type, content, media_urls, mood, is_deleted, comments_disabled, view_count, created_at, users:author_id(id,alias,avatar_color,avatar_url,is_verified,is_suspended), topics:topic_id(id,name,icon,color), post_stats(sip_count,comment_count,red_flag_count,green_flag_count,same_count,repost_count)",
       { count: "exact" }
     )
     .order("created_at", { ascending: false });
@@ -324,6 +325,7 @@ export async function getPosts(q: PostQuery = {}): Promise<Paginated<AdminPost>>
       red_flag_count: p.post_stats?.red_flag_count ?? 0,
       green_flag_count: p.post_stats?.green_flag_count ?? 0,
       same_count: p.post_stats?.same_count ?? 0,
+      repost_count: p.post_stats?.repost_count ?? 0,
       view_count: p.view_count ?? 0,
     },
     poll: null,

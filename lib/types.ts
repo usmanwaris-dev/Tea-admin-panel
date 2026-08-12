@@ -61,6 +61,7 @@ export interface PostStats {
   red_flag_count: number;
   green_flag_count: number;
   same_count: number;
+  repost_count: number;
   view_count: number;
 }
 

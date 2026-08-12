@@ -1,17 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { Droplet, MessageSquare, Eye, Flag, TriangleAlert, Leaf, Equal } from "lucide-react";
+import { MessageSquare, Eye, Flag, Heart, Coffee, Repeat2 } from "lucide-react";
 import type { AdminPost } from "@/lib/types";
 import { AliasCell } from "@/components/badges";
 import { Badge } from "@/components/ui/badge";
 import { TopicIcon } from "@/components/topic-icon";
 import { compactNumber, formatDateTime, cn } from "@/lib/utils";
 
-function StatChip({ icon: Icon, value, label, tone }: { icon: any; value: number; label: string; tone?: string }) {
+// Exact colours from the Tea app (lib/theme/app_colors.dart).
+export const TEA = { redFlag: "#FF453A", greenFlag: "#30D158", sip: "#FF9F0A" };
+
+function StatChip({ icon: Icon, value, label, color, className }: { icon: any; value: number; label: string; color?: string; className?: string }) {
   return (
     <div className="flex items-center gap-1.5 text-sm" title={`${value.toLocaleString()} ${label}`}>
-      <Icon className={cn("h-4 w-4", tone ?? "text-muted-foreground")} />
+      <Icon className={cn("h-4 w-4", !color && "text-muted-foreground", className)} style={color ? { color } : undefined} />
       <span className="tabular font-medium">{compactNumber(value)}</span>
     </div>
   );
@@ -119,11 +122,11 @@ export function PostView({ post, full = true }: { post: AdminPost; full?: boolea
       {post.poll && <PollView poll={post.poll} />}
 
       <div className="flex flex-wrap items-center gap-4 border-t border-border pt-3">
-        <StatChip icon={Droplet} value={post.stats.sip_count} label="sips" tone="text-accent" />
+        <StatChip icon={Flag} value={post.stats.red_flag_count} label="red flags" color={TEA.redFlag} />
+        <StatChip icon={Heart} value={post.stats.green_flag_count} label="green flags" color={TEA.greenFlag} />
+        <StatChip icon={Coffee} value={post.stats.sip_count} label="sips" color={TEA.sip} />
         <StatChip icon={MessageSquare} value={post.stats.comment_count} label="comments" />
-        <StatChip icon={TriangleAlert} value={post.stats.red_flag_count} label="red flags" tone="text-danger" />
-        <StatChip icon={Leaf} value={post.stats.green_flag_count} label="green flags" tone="text-success" />
-        <StatChip icon={Equal} value={post.stats.same_count} label="same" />
+        <StatChip icon={Repeat2} value={post.stats.repost_count} label="reposts" />
         <StatChip icon={Eye} value={post.stats.view_count} label="views" />
       </div>
     </div>
