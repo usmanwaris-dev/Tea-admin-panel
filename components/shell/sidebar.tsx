@@ -69,7 +69,9 @@ export function Sidebar({
     <aside
       className={cn(
         "w-60 shrink-0 flex-col border-r border-border bg-surface/40",
-        variant === "desktop" ? "hidden lg:flex" : "flex h-full bg-background"
+        variant === "desktop"
+          ? "hidden lg:sticky lg:top-0 lg:flex lg:h-screen"
+          : "flex h-full bg-background"
       )}
     >
       <div className="flex h-16 items-center px-5">

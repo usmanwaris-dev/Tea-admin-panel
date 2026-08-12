@@ -3,8 +3,10 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import type { TimeSeriesPoint } from "@/lib/types";
 import { compactNumber, fullNumber } from "@/lib/utils";
+import { useChartColors } from "@/app/(dashboard)/analytics/charts-client";
 
 export function OverviewTrend({ data }: { data: TimeSeriesPoint[] }) {
+  const { grid, axis } = useChartColors();
   return (
     <ResponsiveContainer width="100%" height={220}>
       <AreaChart data={data} margin={{ left: -16, right: 8, top: 8 }}>
@@ -14,17 +16,17 @@ export function OverviewTrend({ data }: { data: TimeSeriesPoint[] }) {
             <stop offset="100%" stopColor="#e5624d" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+        <CartesianGrid stroke={grid} vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={(d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          stroke="rgba(255,255,255,0.35)"
+          stroke={axis}
           fontSize={11}
           tickLine={false}
           axisLine={false}
           minTickGap={32}
         />
-        <YAxis tickFormatter={compactNumber} stroke="rgba(255,255,255,0.35)" fontSize={11} tickLine={false} axisLine={false} width={40} />
+        <YAxis tickFormatter={compactNumber} stroke={axis} fontSize={11} tickLine={false} axisLine={false} width={40} />
         <Tooltip
           content={({ active, payload, label }: any) =>
             active && payload?.length ? (

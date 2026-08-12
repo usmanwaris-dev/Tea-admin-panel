@@ -15,6 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { compactNumber, fullNumber } from "@/lib/utils";
@@ -27,9 +28,20 @@ const C = {
   green: "#4fbf8b",
   amber: "#e0a13c",
   purple: "#a879e6",
-  grid: "rgba(255,255,255,0.06)",
-  axis: "rgba(255,255,255,0.35)",
 };
+
+/** Theme-aware grid / axis / hover-cursor colors (invisible-in-light fix). */
+export function useChartColors() {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const dark = !mounted || resolvedTheme !== "light";
+  return {
+    grid: dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)",
+    axis: dark ? "rgba(255,255,255,0.38)" : "rgba(0,0,0,0.45)",
+    cursor: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+  };
+}
 
 const RANGES = [
   { days: 7, label: "7d" },
@@ -58,13 +70,6 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
-const axisProps = {
-  stroke: C.axis,
-  fontSize: 11,
-  tickLine: false,
-  axisLine: false,
-};
-
 export function AnalyticsClient({
   series,
   topics,
@@ -76,6 +81,8 @@ export function AnalyticsClient({
 }) {
   const [range, setRange] = React.useState(30);
   const data = React.useMemo(() => series.slice(-range), [series, range]);
+  const { grid, axis, cursor } = useChartColors();
+  const axisProps = { stroke: axis, fontSize: 11, tickLine: false, axisLine: false };
 
   return (
     <div className="space-y-6">
@@ -109,7 +116,7 @@ export function AnalyticsClient({
                     <stop offset="100%" stopColor={C.accent} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke={C.grid} vertical={false} />
+                <CartesianGrid stroke={grid} vertical={false} />
                 <XAxis dataKey="date" tickFormatter={fmtDate} {...axisProps} minTickGap={28} />
                 <YAxis tickFormatter={compactNumber} {...axisProps} width={44} />
                 <Tooltip content={<ChartTooltip />} />
@@ -127,7 +134,7 @@ export function AnalyticsClient({
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={data} margin={{ left: -12, right: 8, top: 4 }}>
-                <CartesianGrid stroke={C.grid} vertical={false} />
+                <CartesianGrid stroke={grid} vertical={false} />
                 <XAxis dataKey="date" tickFormatter={fmtDate} {...axisProps} minTickGap={28} />
                 <YAxis tickFormatter={compactNumber} {...axisProps} width={44} />
                 <Tooltip content={<ChartTooltip />} />
@@ -145,7 +152,7 @@ export function AnalyticsClient({
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={data} margin={{ left: -12, right: 8, top: 4 }}>
-                <CartesianGrid stroke={C.grid} vertical={false} />
+                <CartesianGrid stroke={grid} vertical={false} />
                 <XAxis dataKey="date" tickFormatter={fmtDate} {...axisProps} minTickGap={28} />
                 <YAxis tickFormatter={compactNumber} {...axisProps} width={44} />
                 <Tooltip content={<ChartTooltip />} />
@@ -164,10 +171,10 @@ export function AnalyticsClient({
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={data} margin={{ left: -12, right: 8, top: 4 }}>
-                <CartesianGrid stroke={C.grid} vertical={false} />
+                <CartesianGrid stroke={grid} vertical={false} />
                 <XAxis dataKey="date" tickFormatter={fmtDate} {...axisProps} minTickGap={28} />
                 <YAxis tickFormatter={compactNumber} {...axisProps} width={44} />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: cursor }} />
                 <Bar dataKey="signups" name="Signups" fill={C.purple} radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -182,10 +189,10 @@ export function AnalyticsClient({
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={topics} layout="vertical" margin={{ left: 24, right: 16 }}>
-                <CartesianGrid stroke={C.grid} horizontal={false} />
+                <CartesianGrid stroke={grid} horizontal={false} />
                 <XAxis type="number" tickFormatter={compactNumber} {...axisProps} />
                 <YAxis type="category" dataKey="name" {...axisProps} width={92} />
-                <Tooltip cursor={{ fill: "rgba(255,255,255,0.04)" }} content={<ChartTooltip />} />
+                <Tooltip cursor={{ fill: cursor }} content={<ChartTooltip />} />
                 <Bar dataKey="posts" name="Posts" radius={[0, 3, 3, 0]}>
                   {topics.map((t, i) => (
                     <Cell key={i} fill={t.color} />
