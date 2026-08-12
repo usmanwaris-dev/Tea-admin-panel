@@ -53,6 +53,17 @@ async function audit(entry: {
   });
 }
 
+/** Resolve a user's alias for the audit label (live mode looks it up in the DB). */
+async function userLabel(userId: string): Promise<string> {
+  const mockU = mock.users.find((u) => u.id === userId);
+  if (mockU) return mockU.alias;
+  if (!IS_MOCK && hasServiceRole) {
+    const { data } = await createSupabaseAdminClient().from("users").select("alias").eq("id", userId).maybeSingle();
+    return data?.alias ?? userId;
+  }
+  return userId;
+}
+
 function revalidateAll() {
   ["/", "/reports", "/posts", "/users", "/comments", "/audit", "/broadcast", "/analytics"].forEach((p) =>
     revalidatePath(p)
@@ -76,11 +87,10 @@ export async function resolveReportAction(
     }
   } else {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.rpc("admin_resolve_report", {
-      p_report_id: reportId,
-      p_status: status,
-      p_reason: reason,
-    });
+    const { error } = await supabase
+      .from("reports")
+      .update({ status, resolved: status === "resolved" || status === "dismissed" })
+      .eq("id", reportId);
     if (error) return { ok: false, message: error.message };
   }
   await audit({
@@ -105,7 +115,7 @@ export async function deletePostAction(postId: number, reason: string): Promise<
     if (p) p.is_deleted = true;
   } else {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.rpc("admin_delete_post", { p_post_id: postId, p_reason: reason });
+    const { error } = await supabase.from("posts").update({ is_deleted: true }).eq("id", postId);
     if (error) return { ok: false, message: error.message };
   }
   await audit({
@@ -124,8 +134,14 @@ export async function setPostPinnedAction(postId: number, pinned: boolean): Prom
   const admin = await requireAdmin();
   if (!IS_MOCK && hasServiceRole) {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.rpc("admin_pin_post", { p_post_id: postId, p_pinned: pinned });
-    if (error) return { ok: false, message: error.message };
+    const { data: post } = await supabase.from("posts").select("author_id").eq("id", postId).maybeSingle();
+    if (post?.author_id) {
+      const { error } = await supabase
+        .from("users")
+        .update({ pinned_post_id: pinned ? postId : null })
+        .eq("id", post.author_id);
+      if (error) return { ok: false, message: error.message };
+    }
   }
   await audit({
     actor_email: admin.email,
@@ -149,7 +165,7 @@ export async function deleteCommentAction(commentId: number, reason: string): Pr
     if (c) c.is_deleted = true;
   } else {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.rpc("admin_delete_comment", { p_comment_id: commentId, p_reason: reason });
+    const { error } = await supabase.from("comments").update({ is_deleted: true }).eq("id", commentId);
     if (error) return { ok: false, message: error.message };
   }
   await audit({
@@ -182,11 +198,14 @@ export async function setSuspendedAction(
     }
   } else {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.rpc("admin_set_suspended", {
-      p_user_id: userId,
-      p_suspended: suspended,
-      p_reason: reason,
-    });
+    const { error } = await supabase
+      .from("users")
+      .update({
+        is_suspended: suspended,
+        suspended_at: suspended ? new Date().toISOString() : null,
+        suspension_reason: suspended ? reason : null,
+      })
+      .eq("id", userId);
     if (error) return { ok: false, message: error.message };
   }
   await audit({
@@ -194,7 +213,7 @@ export async function setSuspendedAction(
     action: suspended ? "user.suspend" : "user.unsuspend",
     target_type: "user",
     target_id: userId,
-    target_label: mock.users.find((u) => u.id === userId)?.alias ?? userId,
+    target_label: await userLabel(userId),
     reason: suspended ? reason : null,
   });
   revalidateAll();
@@ -223,7 +242,7 @@ export async function setVerifiedAction(userId: string, verified: boolean): Prom
     if (u) u.is_verified = verified;
   } else {
     const supabase = createSupabaseAdminClient();
-    const { error } = await supabase.rpc("admin_set_verified", { p_user_id: userId, p_verified: verified });
+    const { error } = await supabase.from("users").update({ is_verified: verified }).eq("id", userId);
     if (error) return { ok: false, message: error.message };
   }
   await audit({
@@ -231,7 +250,7 @@ export async function setVerifiedAction(userId: string, verified: boolean): Prom
     action: verified ? "user.verify" : "user.unverify",
     target_type: "user",
     target_id: userId,
-    target_label: mock.users.find((u) => u.id === userId)?.alias ?? userId,
+    target_label: await userLabel(userId),
     reason: null,
   });
   revalidateAll();
@@ -245,54 +264,87 @@ export interface BroadcastInput {
   title: string;
   body: string;
   route: string | null;
-  audience: string;
+  /** Preview the recipient count without sending (uses the function's dry_run). */
+  dryRun?: boolean;
+  /** Send only to this single FCM token (a safe test to your own device). */
+  testToken?: string | null;
 }
 
-export async function sendBroadcastAction(input: BroadcastInput): Promise<ActionResult> {
+/**
+ * The send-broadcast Edge Function targets EVERY user with a saved fcm_token
+ * (there is no segment/audience support server-side). We therefore expose only
+ * honest options: a dry-run count, a single-device test, or a real send-to-all.
+ */
+export async function sendBroadcastAction(
+  input: BroadcastInput
+): Promise<ActionResult & { recipients?: number }> {
   const admin = await requireAdmin();
   if (!input.title.trim() || !input.body.trim()) {
     return { ok: false, message: "Title and body are required." };
   }
 
-  let recipients = 0;
-  let delivered = 0;
+  const audienceLabel = input.testToken ? "Test device" : "All users with push enabled";
 
+  // ---- Mock mode ----
   if (IS_MOCK || !hasServiceRole) {
-    recipients = input.audience.toLowerCase().includes("all") ? 6142 : 2100 + Math.floor(input.title.length * 7);
-    delivered = Math.floor(recipients * 0.97);
+    const recipients = input.testToken ? 1 : 3530;
+    if (input.dryRun) {
+      return { ok: true, message: `${recipients.toLocaleString()} devices would receive this`, recipients };
+    }
+    const delivered = Math.floor(recipients * 0.97);
     mock.broadcasts.unshift({
       id: `bc-live-${mock.broadcasts.length}`,
       title: input.title,
       body: input.body,
       route: input.route,
-      audience: input.audience,
+      audience: audienceLabel,
       status: "sent",
       recipients,
       delivered,
       sent_by: admin.email,
       created_at: new Date().toISOString(),
     });
-  } else {
-    // Invoke the existing send-broadcast Edge Function.
-    const supabase = createSupabaseAdminClient();
-    const { data, error } = await supabase.functions.invoke("send-broadcast", {
-      body: { title: input.title, body: input.body, route: input.route, audience: input.audience },
+    await audit({
+      actor_email: admin.email,
+      action: "broadcast.send",
+      target_type: "broadcast",
+      target_id: null,
+      target_label: input.title,
+      reason: null,
+      metadata: { route: input.route, recipients, test: !!input.testToken },
     });
-    if (error) return { ok: false, message: error.message };
-    recipients = (data as any)?.recipients ?? 0;
-    delivered = (data as any)?.delivered ?? recipients;
-    await supabase.from("admin_broadcasts").insert({
-      title: input.title,
-      body: input.body,
-      route: input.route,
-      audience: input.audience,
-      status: "sent",
-      recipients,
-      delivered,
-      sent_by: admin.email,
-    });
+    revalidateAll();
+    return { ok: true, message: `Sent to ${recipients.toLocaleString()} devices`, recipients };
   }
 
+  // ---- Live: invoke the send-broadcast Edge Function ----
+  const supabase = createSupabaseAdminClient();
+  const payload: Record<string, unknown> = { title: input.title, body: input.body };
+  if (input.route) payload.route = input.route;
+  if (input.dryRun) payload.dry_run = true;
+  if (input.testToken) payload.token = input.testToken;
+
+  const { data, error } = await supabase.functions.invoke("send-broadcast", { body: payload });
+  if (error) return { ok: false, message: error.message };
+  const d = data as any;
+  const recipients = d?.recipients ?? 0;
+  const delivered = d?.sent ?? d?.delivered ?? recipients;
+
+  // Dry-run: report the count, record nothing.
+  if (input.dryRun) {
+    return { ok: true, message: `${recipients.toLocaleString()} devices would receive this`, recipients };
+  }
+
+  await supabase.from("admin_broadcasts").insert({
+    title: input.title,
+    body: input.body,
+    route: input.route,
+    audience: audienceLabel,
+    status: "sent",
+    recipients,
+    delivered,
+    sent_by: admin.email,
+  });
   await audit({
     actor_email: admin.email,
     action: "broadcast.send",
@@ -300,8 +352,12 @@ export async function sendBroadcastAction(input: BroadcastInput): Promise<Action
     target_id: null,
     target_label: input.title,
     reason: null,
-    metadata: { audience: input.audience, route: input.route, recipients },
+    metadata: { route: input.route, recipients, test: !!input.testToken },
   });
   revalidateAll();
-  return { ok: true, message: `Sent to ${recipients.toLocaleString()} recipients` };
+  return {
+    ok: true,
+    message: input.testToken ? "Test notification sent to your device" : `Sent to ${recipients.toLocaleString()} devices`,
+    recipients,
+  };
 }
