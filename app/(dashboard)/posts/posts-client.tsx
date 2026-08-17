@@ -15,6 +15,7 @@ import { AliasCell } from "@/components/badges";
 import { TopicIcon } from "@/components/topic-icon";
 import { PostView, TEA } from "@/components/content/post-view";
 import { PostComments } from "@/components/content/post-comments";
+import { SeedActions } from "@/components/content/seed-actions";
 import { ConfirmAction } from "@/components/confirm-action";
 import { compactNumber, timeAgo, truncate, cn } from "@/lib/utils";
 import { deletePostAction, setPostPinnedAction } from "@/lib/actions";
@@ -23,6 +24,7 @@ export function PostsClient({ posts }: { posts: AdminPost[] }) {
   const router = useRouter();
   const [active, setActive] = React.useState<AdminPost | null>(null);
   const [confirmDelete, setConfirmDelete] = React.useState<AdminPost | null>(null);
+  const [commentReload, setCommentReload] = React.useState(0);
 
   async function pin(post: AdminPost, pinned: boolean) {
     const res = await setPostPinnedAction(post.id, pinned);
@@ -202,7 +204,8 @@ export function PostsClient({ posts }: { posts: AdminPost[] }) {
         {active && (
           <>
             <PostView post={active} />
-            <PostComments postId={active.id} count={active.stats.comment_count} />
+            <SeedActions postId={active.id} onCommented={() => setCommentReload((k) => k + 1)} />
+            <PostComments postId={active.id} count={active.stats.comment_count} reloadSignal={commentReload} />
           </>
         )}
       </Drawer>

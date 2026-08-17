@@ -12,6 +12,7 @@ import {
   BarChart3,
   ScrollText,
   BellRing,
+  Sprout,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Operations",
     items: [
+      { href: "/seed", label: "Seed Profiles", icon: Sprout },
       { href: "/broadcast", label: "Broadcast", icon: Megaphone },
       { href: "/health", label: "Push health", icon: BellRing },
       { href: "/audit", label: "Audit log", icon: ScrollText },

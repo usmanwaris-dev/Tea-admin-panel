@@ -27,6 +27,7 @@ import type {
   KpiSnapshot,
   Paginated,
   ReportStatus,
+  SeedProfile,
   TimeSeriesPoint,
   TopicVolume,
 } from "@/lib/types";
@@ -685,4 +686,49 @@ export async function getPushCoverage(): Promise<{ rows: PushCoverageRow[]; tota
     .order("users", { ascending: false });
   const rows = ((data ?? []) as any[]) as PushCoverageRow[];
   return { rows, totalRegistered: rows.reduce((s, r) => s + (r.users ?? 0), 0) };
+}
+
+// ---------------------------------------------------------------------------
+// Seed profiles (users.is_seed = true) — the "act as" switcher roster.
+// ---------------------------------------------------------------------------
+export async function getSeedProfiles(): Promise<SeedProfile[]> {
+  if (IS_MOCK) {
+    // Surface the first slice of mock users as stand-in seed profiles so the
+    // switcher renders with zero backend setup.
+    return mock.users.slice(0, 20).map((u, i) => ({
+      id: u.id,
+      alias: u.alias,
+      avatar_color: u.avatar_color,
+      avatar_url: u.avatar_url,
+      // Give the mock stand-ins a spread of presets so the switcher demos faces.
+      preset_avatar_id: ["p1", "m1", "p3", "a2", "m3", "w3", "p4", "m6", "m5", "p2"][i % 10],
+      bio: u.bio,
+      is_verified: u.is_verified,
+      post_count: u.post_count,
+      comment_count: u.comment_count,
+      created_at: u.created_at,
+    }));
+  }
+  // post_count / comment_count are NOT columns on users (they're computed with
+  // extra count queries elsewhere). The switcher doesn't need live totals, so we
+  // skip that cost and report 0 — the roster is small and the seeder knows who
+  // they've posted as from the audit log.
+  const { data } = await liveDb()
+    .from("users")
+    .select("id, alias, avatar_color, avatar_url, preset_avatar_id, bio, is_verified, created_at")
+    // is_seed is a new column, not yet in the generated Database types.
+    .eq("is_seed" as any, true)
+    .order("alias", { ascending: true });
+  return (data ?? []).map((u: any) => ({
+    id: u.id,
+    alias: u.alias,
+    avatar_color: u.avatar_color ?? null,
+    avatar_url: u.avatar_url ?? null,
+    preset_avatar_id: u.preset_avatar_id ?? null,
+    bio: u.bio ?? null,
+    is_verified: !!u.is_verified,
+    post_count: 0,
+    comment_count: 0,
+    created_at: u.created_at,
+  }));
 }

@@ -14,7 +14,7 @@ import { timeAgo, cn } from "@/lib/utils";
 import { loadPostCommentsAction, deleteCommentAction } from "@/lib/actions";
 
 /** Lazy-loaded thread of a post's comments, with inline moderation. */
-export function PostComments({ postId, count }: { postId: number; count?: number }) {
+export function PostComments({ postId, count, reloadSignal }: { postId: number; count?: number; reloadSignal?: number }) {
   const router = useRouter();
   const [comments, setComments] = React.useState<AdminComment[] | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -39,7 +39,7 @@ export function PostComments({ postId, count }: { postId: number; count?: number
     return () => {
       cancelled = true;
     };
-  }, [postId]);
+  }, [postId, reloadSignal]);
 
   const shown = comments?.length ?? count ?? 0;
 

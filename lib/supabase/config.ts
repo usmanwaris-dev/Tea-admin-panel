@@ -39,3 +39,6 @@ export const IS_MOCK = DATA_SOURCE === "mock";
 
 /** The Storage bucket that holds post images in the Tea backend. */
 export const POST_MEDIA_BUCKET = "post-media";
+
+/** Storage bucket for seed-profile avatar images (created on first upload). */
+export const SEED_AVATAR_BUCKET = "seed-avatars";

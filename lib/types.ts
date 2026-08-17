@@ -123,6 +123,20 @@ export interface AdminUser {
   reports_against: number;
 }
 
+/** A hand-driven seeding profile (users.is_seed = true) shown in the switcher. */
+export interface SeedProfile {
+  id: string;
+  alias: string;
+  avatar_color: string | null;
+  avatar_url: string | null;
+  preset_avatar_id: string | null;
+  bio: string | null;
+  is_verified: boolean;
+  post_count: number;
+  comment_count: number;
+  created_at: string;
+}
+
 export interface AdminReport {
   id: number;
   reporter: AuthorRef; // anonymous alias only
@@ -150,7 +164,14 @@ export type AuditAction =
   | "user.verify"
   | "user.unverify"
   | "broadcast.send"
-  | "auth.login";
+  | "auth.login"
+  | "seed.act_as"
+  | "seed.stop"
+  | "seed.post"
+  | "seed.comment"
+  | "seed.verdict"
+  | "seed.repost"
+  | "seed.avatar";
 
 export interface AuditEntry {
   id: string;
