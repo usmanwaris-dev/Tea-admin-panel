@@ -62,27 +62,30 @@ const shape = (i: number) => SHAPES[i % SHAPES.length];
 const color = (i: number) => PALETTE[i % PALETTE.length];
 const preset = (i: number) => PRESETS[i % PRESETS.length];
 
+// Aliases are handle-style (like real Tea users: ShadowSpark71, SneakySaucer),
+// NOT real names, so seed profiles blend in. Emails are kept stable as the
+// idempotency key — changing them would make a re-run create duplicates.
 const ROSTER: SeedPerson[] = [
-  { alias: "Maya Ellison",       email: "maya.ellison@seed.tea.local",     bio: "late-20s, dry humor, situationship survivor" },
-  { alias: "Devon Pryce",        email: "devon.pryce@seed.tea.local",      bio: "i'll play devil's advocate so you don't have to" },
-  { alias: "Amara Okafor",       email: "amara.okafor@seed.tea.local",     bio: "rooting for you, always" },
-  { alias: "Riley Contreras",    email: "riley.contreras@seed.tea.local",  bio: "red flag radar, zero patience" },
-  { alias: "Jonah Feld",         email: "jonah.feld@seed.tea.local",       bio: "i will overthink this for you" },
-  { alias: "Priya Nandakumar",   email: "priya.nandakumar@seed.tea.local", bio: "career first. why are you settling" },
-  { alias: "Theo Marsh",         email: "theo.marsh@seed.tea.local",       bio: "divorced and wiser", verified: true },
-  { alias: "Camille Boucher",    email: "camille.boucher@seed.tea.local",  bio: "hopeless romantic, pro green flag" },
-  { alias: "Marcus Hale",        email: "marcus.hale@seed.tea.local",      bio: "boundaries are self-care" },
-  { alias: "Sofia Reyes",        email: "sofia.reyes@seed.tea.local",      bio: "spill it. all of it." },
-  { alias: "Ben Kowalski",       email: "ben.kowalski@seed.tea.local",     bio: "here for the one-liners" },
-  { alias: "Naomi Adeyemi",      email: "naomi.adeyemi@seed.tea.local",    bio: "let's name the pattern", verified: true },
-  { alias: "Elliot Chen",        email: "elliot.chen@seed.tea.local",      bio: "what did they ACTUALLY say tho" },
-  { alias: "Georgia Wren",       email: "georgia.wren@seed.tea.local",     bio: "gentle nudges only" },
-  { alias: "Andre Silva",        email: "andre.silva@seed.tea.local",      bio: "been there, survived that" },
-  { alias: "Hana Yamamoto",      email: "hana.yamamoto@seed.tea.local",    bio: "one perfect sentence" },
-  { alias: "Kayla Brooks",       email: "kayla.brooks@seed.tea.local",     bio: "chaotic good energy" },
-  { alias: "Ravi Malhotra",      email: "ravi.malhotra@seed.tea.local",    bio: "here's what i'd text back" },
-  { alias: "Lena Vogel",         email: "lena.vogel@seed.tea.local",       bio: "we're only hearing one side" },
-  { alias: "Isaiah Turner",      email: "isaiah.turner@seed.tea.local",    bio: "you got this, for real" },
+  { alias: "MidnightWillow",  email: "maya.ellison@seed.tea.local",     bio: "late-20s, dry humor, situationship survivor" },
+  { alias: "SaltySaucer",     email: "devon.pryce@seed.tea.local",      bio: "i'll play devil's advocate so you don't have to" },
+  { alias: "VelvetMoth",      email: "amara.okafor@seed.tea.local",     bio: "rooting for you, always" },
+  { alias: "FeralClover",     email: "riley.contreras@seed.tea.local",  bio: "red flag radar, zero patience" },
+  { alias: "QuietStorm88",    email: "jonah.feld@seed.tea.local",       bio: "i will overthink this for you" },
+  { alias: "NeonOrbit",       email: "priya.nandakumar@seed.tea.local", bio: "career first. why are you settling" },
+  { alias: "GoldenThorn",     email: "theo.marsh@seed.tea.local",       bio: "divorced and wiser", verified: true },
+  { alias: "SugarRaven21",    email: "camille.boucher@seed.tea.local",  bio: "hopeless romantic, pro green flag" },
+  { alias: "IronMocha",       email: "marcus.hale@seed.tea.local",      bio: "boundaries are self-care" },
+  { alias: "CosmicPeach",     email: "sofia.reyes@seed.tea.local",      bio: "spill it. all of it." },
+  { alias: "DryComet",        email: "ben.kowalski@seed.tea.local",     bio: "here for the one-liners" },
+  { alias: "LunarWren",       email: "naomi.adeyemi@seed.tea.local",    bio: "let's name the pattern", verified: true },
+  { alias: "StaticFox",       email: "elliot.chen@seed.tea.local",      bio: "what did they ACTUALLY say tho" },
+  { alias: "HazyClover",      email: "georgia.wren@seed.tea.local",     bio: "gentle nudges only" },
+  { alias: "RoyalHarbor",     email: "andre.silva@seed.tea.local",      bio: "been there, survived that" },
+  { alias: "SilentJuniper",   email: "hana.yamamoto@seed.tea.local",    bio: "one perfect sentence" },
+  { alias: "WildChaos99",     email: "kayla.brooks@seed.tea.local",     bio: "chaotic good energy" },
+  { alias: "BitterLatte",     email: "ravi.malhotra@seed.tea.local",    bio: "here's what i'd text back" },
+  { alias: "GreySkeptic",     email: "lena.vogel@seed.tea.local",       bio: "we're only hearing one side" },
+  { alias: "BoldEmber",       email: "isaiah.turner@seed.tea.local",    bio: "you got this, for real" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
