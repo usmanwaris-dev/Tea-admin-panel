@@ -5,9 +5,10 @@ import { cookies } from "next/headers";
 import { requireAdmin } from "@/lib/auth";
 import { IS_MOCK, hasServiceRole, SEED_AVATAR_BUCKET, POST_MEDIA_BUCKET, SUPABASE_URL } from "@/lib/supabase/config";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getPostComments, getUserComments, getUserPosts } from "@/lib/data/repo";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getPostComments, getReviewQueue, getUserComments, getUserPosts } from "@/lib/data/repo";
 import * as mock from "@/lib/mock/data";
-import type { AdminComment, AdminPost, AuditAction, ReportStatus, VerdictType } from "@/lib/types";
+import type { AdminComment, AdminPost, AuditAction, ReportStatus, ReviewQueueItem, VerdictType } from "@/lib/types";
 
 export interface ActionResult {
   ok: boolean;
@@ -66,7 +67,7 @@ async function userLabel(userId: string): Promise<string> {
 }
 
 function revalidateAll() {
-  ["/", "/reports", "/posts", "/users", "/comments", "/audit", "/broadcast", "/analytics", "/seed"].forEach((p) =>
+  ["/", "/reports", "/review", "/posts", "/users", "/comments", "/audit", "/broadcast", "/analytics", "/seed"].forEach((p) =>
     revalidatePath(p)
   );
 }
@@ -102,6 +103,68 @@ export async function resolveReportAction(
     target_label: `Report #${reportId}`,
     reason: reason || null,
   });
+  revalidateAll();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Review queue (published-then-held moderation)
+// ---------------------------------------------------------------------------
+export type ReviewLoadResult =
+  | { ok: true; items: ReviewQueueItem[] }
+  | { ok: false; message: string };
+
+/** Fetch a page of the review queue for the client (initial load + "load more"). */
+export async function loadReviewQueueAction(
+  cursor: string | null,
+  limit = 25
+): Promise<ReviewLoadResult> {
+  try {
+    await requireAdmin();
+    const items = await getReviewQueue({ cursor, limit });
+    return { ok: true, items };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "Failed to load the review queue" };
+  }
+}
+
+/**
+ * Resolve one held-post report via the `admin_resolve_report` RPC.
+ *  - "dismissed" → Approve & publish (post goes live, counts toward its topic)
+ *  - "resolved"  → Keep removed (post stays hidden)
+ * The RPC re-checks is_admin() and writes its own audit row, so in live mode we
+ * do NOT double-audit here. In mock mode we drop the item and log locally.
+ */
+export async function resolveReviewAction(
+  reportId: number,
+  status: "dismissed" | "resolved",
+  reason: string
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+
+  if (IS_MOCK || !hasServiceRole) {
+    const idx = mock.reviewQueue.findIndex((r) => r.report_id === reportId);
+    if (idx >= 0) mock.reviewQueue.splice(idx, 1);
+    await audit({
+      actor_email: admin.email,
+      action: status === "dismissed" ? "report.dismiss" : "report.resolve",
+      target_type: "report",
+      target_id: String(reportId),
+      target_label: `Review report #${reportId}`,
+      reason: reason || null,
+    });
+    revalidateAll();
+    return { ok: true };
+  }
+
+  // Session client — the RPC is is_admin()-gated (service role has no auth.uid()).
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.rpc("admin_resolve_report" as any, {
+    p_report_id: reportId,
+    p_status: status,
+    p_reason: reason,
+  } as any);
+  if (error) return { ok: false, message: error.message };
   revalidateAll();
   return { ok: true };
 }

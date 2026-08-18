@@ -174,6 +174,7 @@ export interface Database {
       admin_set_suspended: { Args: { p_user_id: string; p_suspended: boolean; p_reason: string }; Returns: undefined };
       admin_set_verified: { Args: { p_user_id: string; p_verified: boolean }; Returns: undefined };
       admin_resolve_report: { Args: { p_report_id: number; p_status: string; p_reason: string }; Returns: undefined };
+      admin_list_review_queue: { Args: { p_limit: number; p_cursor: string | null }; Returns: Json };
       admin_pin_post: { Args: { p_post_id: number; p_pinned: boolean }; Returns: undefined };
       is_admin: { Args: Record<string, never>; Returns: boolean };
     };

@@ -23,6 +23,7 @@ import type {
   KpiSnapshot,
   ReportReason,
   ReportStatus,
+  ReviewQueueItem,
   TimeSeriesPoint,
   TopicVolume,
 } from "@/lib/types";
@@ -268,6 +269,78 @@ export const reports: AdminReport[] = Array.from({ length: 34 }).map((_, i) => {
     target_user,
   };
 });
+
+// ---- Review queue (held posts awaiting moderation) ------------------------
+// Published-then-held posts: is_under_review + is_deleted, each with a pending
+// report. System auto-flags (is_system) carry a machine reason in `details`;
+// user reports carry a human note. Some posts appear twice (auto-flag + a later
+// user report) to exercise the "multiple pending reports on one post" case.
+// Mutated in place (splice) when a mock resolve drops an item.
+const AUTO_DETAILS = [
+  "Auto-flagged for review — targeting:accusation_named; explicit:explicit_anatomy",
+  "Auto-flagged for review — targeting:accusation_named",
+  "Auto-flagged for review — explicit:explicit_anatomy; toxicity:severe",
+  "Auto-flagged for review — self_harm:ideation",
+  "Auto-flagged for review — pii:phone_number; targeting:accusation_named",
+];
+const USER_DETAILS = [
+  "this is clearly targeting a specific person by name",
+  "graphic / explicit content, shouldn't be public",
+  "feels like a coordinated pile-on",
+  "",
+];
+
+export const reviewQueue: ReviewQueueItem[] = (() => {
+  const held = posts.slice(0, 9);
+  const items: ReviewQueueItem[] = [];
+  held.forEach((p, i) => {
+    const author = users.find((u) => u.id === p.author.id) ?? pick(users);
+    const toAuthor = (): ReviewQueueItem["author"] => ({
+      id: author.id,
+      alias: author.alias,
+      avatar_shape: pick(["circle", "squircle", "hexagon"]),
+      avatar_color: author.avatar_color,
+      avatar_url: author.avatar_url,
+      preset_avatar_id: ["p1", "m1", "p3", "a2", "m3", "w3", "p4", "m6", "m5", "p2"][i % 10],
+    });
+    const base = {
+      post_id: p.id,
+      content: p.content,
+      media_urls: p.media_urls,
+      mood: p.mood,
+      is_under_review: true,
+      is_deleted: true,
+      post_created_at: p.created_at,
+      topic: p.topic,
+    };
+    // Every held post has an auto-flag (this is what publishing/keeping keys off).
+    items.push({
+      report_id: 40000 + i * 2,
+      reason: pick(["harassment", "hate_speech", "violence", "other"]) as ReportReason,
+      details: AUTO_DETAILS[i % AUTO_DETAILS.length],
+      status: "pending",
+      reported_at: iso((i * 5 + 2) * HOUR),
+      is_system: true,
+      author: toAuthor(),
+      ...base,
+    });
+    // ~1 in 3 also picked up a later user report on the same post.
+    if (i % 3 === 0) {
+      items.push({
+        report_id: 40000 + i * 2 + 1,
+        reason: pick(["harassment", "misinformation", "spam", "other"]) as ReportReason,
+        details: USER_DETAILS[i % USER_DETAILS.length],
+        status: "pending",
+        reported_at: iso((i * 5) * HOUR), // slightly newer than the auto-flag
+        is_system: false,
+        author: toAuthor(),
+        ...base,
+      });
+    }
+  });
+  // Newest first, matching the RPC contract.
+  return items.sort((a, b) => new Date(b.reported_at).getTime() - new Date(a.reported_at).getTime());
+})();
 
 // ---- Audit log ------------------------------------------------------------
 const ADMIN_EMAILS = ["dev2@getsnippet.co", "mod.jess@getsnippet.co", "ops.sam@getsnippet.co"];

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Flag,
+  ListChecks,
   FileText,
   MessageSquare,
   Users,
@@ -38,6 +39,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Moderation",
     items: [
       { href: "/reports", label: "Reports", icon: Flag, badgeKey: "reports" },
+      { href: "/review", label: "Review Queue", icon: ListChecks },
       { href: "/posts", label: "Posts", icon: FileText },
       { href: "/comments", label: "Comments", icon: MessageSquare },
       { href: "/users", label: "Users", icon: Users },

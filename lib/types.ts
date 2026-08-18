@@ -152,6 +152,40 @@ export interface AdminReport {
   target_user?: AuthorRef | null;
 }
 
+/**
+ * One row of the moderation Review Queue — a *held* post (published-then-held)
+ * paired with a single pending report. Shape mirrors the `admin_list_review_queue`
+ * RPC exactly. The same post can appear under more than one report row (an
+ * auto-flag plus later user reports); each row carries its own `report_id`, and
+ * the admin's publish/keep decision keys off the row they act on.
+ */
+export interface ReviewQueueAuthor {
+  id: string;
+  alias: string;
+  avatar_shape: string | null;
+  avatar_color: string | null;
+  avatar_url: string | null;
+  preset_avatar_id: string | null;
+}
+
+export interface ReviewQueueItem {
+  report_id: number;
+  reason: ReportReason;
+  details: string | null; // machine reason, e.g. "Auto-flagged for review — targeting:accusation_named"
+  status: ReportStatus;
+  reported_at: string;
+  is_system: boolean; // true = auto-flag (reporter_id IS NULL); false = user report
+  post_id: number;
+  content: string | null;
+  media_urls: string[];
+  mood: string | null;
+  is_under_review: boolean;
+  is_deleted: boolean;
+  post_created_at: string;
+  author: ReviewQueueAuthor;
+  topic: TopicRef | null;
+}
+
 export type AuditAction =
   | "report.resolve"
   | "report.dismiss"

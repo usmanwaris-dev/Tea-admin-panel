@@ -15,6 +15,10 @@ import * as mock from "@/lib/mock/data";
  * DB from the public anon key.
  */
 const liveDb = () => createSupabaseAdminClient();
+// The review-queue RPCs are SECURITY DEFINER and gated on is_admin() (= auth.uid()
+// is in `admins`). The service-role client has no auth.uid(), so it would be
+// rejected — these RPCs must run on the signed-in admin's *session* client.
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   AdminComment,
   AdminPost,
@@ -27,6 +31,7 @@ import type {
   KpiSnapshot,
   Paginated,
   ReportStatus,
+  ReviewQueueItem,
   SeedProfile,
   TimeSeriesPoint,
   TopicVolume,
@@ -265,6 +270,71 @@ export async function getReportById(id: number): Promise<AdminReport | null> {
   if (IS_MOCK) return mock.reports.find((r) => r.id === id) ?? null;
   const list = await getReports({ pageSize: 500 });
   return list.rows.find((r) => r.id === id) ?? null;
+}
+
+// ===========================================================================
+// Review queue (published-then-held moderation)
+// ===========================================================================
+export interface ReviewQueueQuery {
+  limit?: number;
+  /** Pass the last item's `reported_at` to page forward (newest-first). */
+  cursor?: string | null;
+}
+
+const REVIEW_PAGE_SIZE = 25;
+
+function mapReviewItem(r: any): ReviewQueueItem {
+  return {
+    report_id: r.report_id,
+    reason: r.reason,
+    details: r.details ?? null,
+    status: r.status ?? "pending",
+    reported_at: r.reported_at,
+    is_system: !!r.is_system,
+    post_id: r.post_id,
+    content: r.content ?? null,
+    media_urls: (r.media_urls ?? []).map(publicMediaUrl),
+    mood: r.mood ?? null,
+    is_under_review: !!r.is_under_review,
+    is_deleted: !!r.is_deleted,
+    post_created_at: r.post_created_at,
+    author: {
+      id: r.author?.id ?? "",
+      alias: r.author?.alias ?? "anon",
+      avatar_shape: r.author?.avatar_shape ?? null,
+      avatar_color: r.author?.avatar_color ?? null,
+      avatar_url: r.author?.avatar_url ?? null,
+      preset_avatar_id: r.author?.preset_avatar_id ?? null,
+    },
+    topic: r.topic
+      ? { id: r.topic.id, name: r.topic.name, icon: r.topic.icon, color: r.topic.color }
+      : null,
+  };
+}
+
+/**
+ * The moderation Review Queue: held posts (is_under_review) each paired with a
+ * pending report, newest first. Uses the `admin_list_review_queue` RPC only —
+ * RLS hides system auto-flags from clients, and the RPC is the single authorized
+ * surface. Runs on the admin's *session* client (see the import note above).
+ */
+export async function getReviewQueue(q: ReviewQueueQuery = {}): Promise<ReviewQueueItem[]> {
+  const limit = q.limit ?? REVIEW_PAGE_SIZE;
+  const cursor = q.cursor ?? null;
+
+  if (IS_MOCK) {
+    let rows = mock.reviewQueue; // already newest-first
+    if (cursor) rows = rows.filter((r) => new Date(r.reported_at).getTime() < new Date(cursor).getTime());
+    return rows.slice(0, limit);
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("admin_list_review_queue" as any, {
+    p_limit: limit,
+    p_cursor: cursor,
+  } as any);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as any[]).map(mapReviewItem);
 }
 
 // ===========================================================================
