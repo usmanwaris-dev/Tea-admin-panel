@@ -43,6 +43,7 @@ export interface Database {
           media_urls: string[];
           mood: string | null;
           is_deleted: boolean | null;
+          is_under_review: boolean | null;
           comments_disabled: boolean;
           view_count: number | null;
           created_at: string | null;

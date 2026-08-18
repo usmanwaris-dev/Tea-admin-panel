@@ -189,3 +189,114 @@ grant execute on function public.admin_resolve_report(bigint, text, text) to aut
 -- insert into public.admins (user_id, email, role)
 -- select id, email, 'owner' from auth.users where email = 'dev2@getsnippet.co'
 -- on conflict (user_id) do nothing;
+
+-- ===========================================================================
+-- 7. Review Queue — publish-then-hold moderation
+-- ===========================================================================
+-- The Tea app moved from hard-block to publish-then-hold: a post that trips a
+-- content detector is still created but HELD — hidden from public feeds
+-- (is_under_review + is_deleted) and visible only to its author — and a pending
+-- report is filed (system auto-flags have reporter_id IS NULL).
+--
+-- This section adds the admin surface the dashboard's Review Queue depends on:
+--   • posts.is_under_review flag (idempotent; the APP must set it true when it
+--     holds a post — this only guarantees the column exists for the admin side)
+--   • admin_list_review_queue(p_limit, p_cursor) → held posts + pending reports
+--   • admin_resolve_report re-defined to also PUBLISH (dismissed) or KEEP-HIDE
+--     (resolved) the held post, not just close the report row.
+-- Safe to re-run.
+
+-- 7a. Hold flag on posts (app-owned column; declared here so the admin RPCs
+--     compile even before the app migration lands). Non-destructive.
+alter table public.posts add column if not exists is_under_review boolean not null default false;
+create index if not exists posts_under_review_idx on public.posts (is_under_review) where is_under_review;
+
+-- 7b. List the queue: one row per pending report on a held post, newest first.
+--     Returns a JSON array shaped exactly for the admin panel. RLS on `reports`
+--     hides system auto-flags from clients, so this SECURITY DEFINER RPC is the
+--     only authorized way to read the queue.
+create or replace function public.admin_list_review_queue(p_limit int default 50, p_cursor timestamptz default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+stable
+as $$
+declare v_out jsonb;
+begin
+  if not public.is_admin() then raise exception 'not authorized'; end if;
+  select coalesce(jsonb_agg(x order by x.reported_at desc), '[]'::jsonb) into v_out
+  from (
+    select
+      r.id                          as report_id,
+      r.reason                      as reason,
+      r.details                     as details,
+      r.status                      as status,
+      r.created_at                  as reported_at,
+      (r.reporter_id is null)       as is_system,
+      p.id                          as post_id,
+      p.content                     as content,
+      coalesce(p.media_urls, '{}'::text[]) as media_urls,
+      p.mood                        as mood,
+      p.is_under_review             as is_under_review,
+      p.is_deleted                  as is_deleted,
+      p.created_at                  as post_created_at,
+      jsonb_build_object(
+        'id', u.id,
+        'alias', u.alias,
+        'avatar_shape', u.avatar_shape,
+        'avatar_color', u.avatar_color,
+        'avatar_url', u.avatar_url,
+        'preset_avatar_id', u.preset_avatar_id
+      )                             as author,
+      case when t.id is null then null else jsonb_build_object(
+        'id', t.id, 'name', t.name, 'icon', t.icon, 'color', t.color
+      ) end                         as topic
+    from public.reports r
+    join public.posts  p on p.id = r.post_id
+    left join public.users  u on u.id = p.author_id
+    left join public.topics t on t.id = p.topic_id
+    where r.status = 'pending'
+      and r.post_id is not null
+      and p.is_under_review = true
+      and (p_cursor is null or r.created_at < p_cursor)
+    order by r.created_at desc
+    limit greatest(1, least(coalesce(p_limit, 50), 200))
+  ) x;
+  return v_out;
+end; $$;
+
+-- 7c. Resolve one held-post report AND settle the post's visibility.
+--     dismissed → Approve & publish (un-hide); resolved → Keep removed (stays
+--     hidden). The `and is_under_review` guard means resolving an ordinary
+--     report on a non-held post never touches post visibility.
+create or replace function public.admin_resolve_report(p_report_id bigint, p_status text, p_reason text)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_post bigint;
+begin
+  if not public.is_admin() then raise exception 'not authorized'; end if;
+
+  update public.reports
+     set status   = p_status,
+         resolved = (p_status in ('resolved', 'dismissed'))
+   where id = p_report_id
+   returning post_id into v_post;
+
+  if v_post is not null then
+    if p_status = 'dismissed' then
+      -- Approve & publish: the post goes live and counts toward its topic.
+      update public.posts set is_under_review = false, is_deleted = false
+       where id = v_post and is_under_review = true;
+    elsif p_status = 'resolved' then
+      -- Keep removed: no longer awaiting review, but stays hidden.
+      update public.posts set is_under_review = false
+       where id = v_post and is_under_review = true;
+    end if;
+  end if;
+
+  perform public._admin_audit(case when p_status = 'dismissed' then 'report.dismiss' else 'report.resolve' end,
+                              'report', p_report_id::text, 'Report #' || p_report_id, p_reason, null);
+end; $$;
+
+grant execute on function public.admin_list_review_queue(int, timestamptz) to authenticated;
+grant execute on function public.admin_resolve_report(bigint, text, text)   to authenticated;
